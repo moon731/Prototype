@@ -70,7 +70,7 @@ Animation.prototype.drawFrame = function (tick, ctx, x, y, scaleBy) {
     var locX = x - (this.frameWidth / 2) * scaleBy;
     var locY = y - (this.frameHeight / 2) * scaleBy;
     ctx.drawImage(this.spriteSheet,
-                  index * this.frameWidth, 0,  // source from sheet
+                  index * this.frameWidth, 0,
                   this.frameWidth, this.frameHeight,
                   locX, locY,
                   this.frameWidth * scaleBy,
@@ -300,6 +300,7 @@ function RollingCat(game, x, y) {
     Entity.call(this, game, x, y);
     this.animation = new Animation('./rolling.png', 300, 0.09, true);
     this.radius = this.animation.frameWidth / 2;
+    this.jump = false;
 }
 RollingCat.prototype = new Entity();
 RollingCat.prototype.constructor = RollingCat;
@@ -308,6 +309,18 @@ RollingCat.prototype.update = function () {
     Entity.prototype.update.call(this);
     if (this.animation.isDone()) {
         this.removeFromWorld = true;
+    }
+
+    if (this.jump) {
+        if (this.y > 200) {
+            this.y -= 5;
+        } else {
+            this.jump = false;
+        }
+    } else {
+        if (this.y < 360) {
+            this.y += 5;
+        }
     }
 }
 
@@ -466,7 +479,7 @@ ASSET_MANAGER.downloadAll(function () {
             }
 
             if (e.keyCode === 32) {
-                console.log("jump");
+                main_cat.jump = true;
             }
         };
         game.init(ctx);
