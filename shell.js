@@ -278,7 +278,7 @@ function Cat(game, x, y, sprite) {
     this.x = x;
     this.y = y;
     this.sprite = ASSET_MANAGER.getAsset(sprite);
-    this.radius = this.sprite.height / 2;
+    this.radius = 50;
 }
 Cat.prototype = new Entity();
 Cat.prototype.constructor = Cat;
@@ -299,13 +299,18 @@ function RollingCat(game, x, y) {
     this.t = new Timer();
     Entity.call(this, game, x, y);
     this.animation = new Animation('./rolling.png', 300, 0.09, true);
-    this.radius = this.animation.frameWidth / 2;
+    this.radius = 50;
     this.jump = false;
+    this.centerx = this.x + this.radius;
+    this.centery = this.y + this.radius;
+    this.lives = 9;
 }
 RollingCat.prototype = new Entity();
 RollingCat.prototype.constructor = RollingCat;
 
 RollingCat.prototype.update = function () {
+    this.centerx = this.x + this.radius;
+    this.centery = this.y + this.radius;
     Entity.prototype.update.call(this);
     if (this.animation.isDone()) {
         this.removeFromWorld = true;
@@ -335,8 +340,10 @@ function Food(game, radial_distance, angle) {
     this.angle = 0;
     this.speed = 100;
     this.sprite = ASSET_MANAGER.getAsset('./cake.gif');
-    this.radius = this.sprite.height / 2;
+    this.radius = 25;
     this.setCoords();
+    this.centerx = this.x + this.radius;
+    this.centery = this.y + this.radius;
 }
 Food.prototype = new Entity();
 Food.prototype.constructor = Food;
@@ -344,17 +351,33 @@ Food.prototype.constructor = Food;
 Food.prototype.setCoords = function () {
     this.x = this.radial_distance * Math.cos(this.angle);
     this.y = 375;
+    this.centerx = this.x + this.radius;
+    this.centery = this.y + this.radius;
 }
 
 Food.prototype.update = function () {
     this.setCoords();
     this.radial_distance -= this.speed * this.game.clockTick;
 
-    if (this.x < 360 && this.y + 75 > main_cat.y) {
+    distX = main_cat.centerx - this.centerx;
+    distY = main_cat.centery - this.centery;
+
+    dist = Math.sqrt((distX * distX) + (distY * distY));
+    sum = this.radius + main_cat.radius;
+
+    console.log("Sum: " + sum);
+    console.log("Distance: " + sum);
+
+    if (dist <= sum) {
         console.log("Collision - FOOD");
         this.removeFromWorld = true;
     }
 
+    /*if (this.x < 360 && !main_cat.jump) {
+        console.log("Collision - FOOD");
+        this.removeFromWorld = true;
+    }*/
+                    
     Entity.prototype.update.call(this);
 }
 
@@ -376,8 +399,10 @@ function Garbage(game, radial_distance, angle) {
     this.angle = 0;
     this.speed = 200;
     this.sprite = ASSET_MANAGER.getAsset('./skull.png');
-    this.radius = 135 / 2;
+    this.radius = 100 / 2;
     this.setCoords();
+    this.centerx = this.x + this.radius;
+    this.centery = this.y + this.radius;
 }
 Garbage.prototype = new Entity();
 Garbage.prototype.constructor = Garbage;
@@ -385,17 +410,31 @@ Garbage.prototype.constructor = Garbage;
 Garbage.prototype.setCoords = function () {
     this.x = this.radial_distance;
     this.y = 370;
+    this.centerx = this.x + this.radius;
+    this.centery = this.y + this.radius;
 }
 
 Garbage.prototype.update = function () {
     this.setCoords();
     this.radial_distance -= this.speed * this.game.clockTick;
 
-    if (this.radial_distance < 360) {
-        console.log("Collision - GARBAGE");
-        this.removeFromWorld = true;
-    }
+    distX = main_cat.centerx - this.centerx;
+    distY = main_cat.centery - this.centery;
 
+    dist = Math.sqrt((distX * distX) + (distY * distY));
+    sum = this.radius + main_cat.radius;
+
+    console.log("Sum: " + sum);
+    console.log("Distance: " + sum);
+
+    if (dist <= sum) {
+        console.log("Collision - FOOD");
+        this.removeFromWorld = true;
+        main_cat.lives--;
+        if (main_cat.lives === 0) {
+            alert("You Died!!!!!");
+        }
+    }
     Entity.prototype.update.call(this);
 }
 
