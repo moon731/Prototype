@@ -1,3 +1,7 @@
+var garbage = 6;
+var garbage_speed = 200;
+var food_scale = 1;
+
 window.requestAnimFrame = (function(){
     return  window.requestAnimationFrame   ||
 			window.webkitRequestAnimationFrame ||
@@ -261,8 +265,14 @@ GameBoard.prototype.draw = function (ctx) {
     rect = canvas.getContext("2d");
     this.ctx = ctx;
     var img = ASSET_MANAGER.getAsset('./bg.png');
+
     ctx.drawImage(img, vx, 0);
     ctx.drawImage(img, img.width - Math.abs(vx), 0);
+
+    ctx.fillStyle = "#000";
+    ctx.font = "bold 24px Arial";
+    ctx.fillText("Lives: " + main_cat.lives, 10, 25);
+    ctx.fillText("Score: " + main_cat.score, 10, 45);
 
     if (Math.abs(vx) > img.width) {
         vx = 0;
@@ -304,6 +314,8 @@ function RollingCat(game, x, y) {
     this.centerx = this.x + this.radius;
     this.centery = this.y + this.radius;
     this.lives = 9;
+    this.score = 0;
+    this.scale = 0.7;
 }
 RollingCat.prototype = new Entity();
 RollingCat.prototype.constructor = RollingCat;
@@ -317,7 +329,7 @@ RollingCat.prototype.update = function () {
     }
 
     if (this.jump) {
-        if (this.y > 200) {
+        if (this.y > 100) {
             this.y -= 5;
         } else {
             this.jump = false;
@@ -330,9 +342,62 @@ RollingCat.prototype.update = function () {
 }
 
 RollingCat.prototype.draw = function (ctx) {
-    this.animation.drawFrame(this.t.tick(), ctx, this.x, this.y, 1);
+    this.animation.drawFrame(this.t.tick(), ctx, this.x, this.y, this.scale);
     Entity.prototype.draw.call(this, ctx);
 }
+
+
+function Vortex(game, radial_distance, angle){
+	Entity.call(this, game);
+    this.radial_distance = radial_distance;
+    this.angle = 0;
+    this.speed = 100;
+    this.sprite = ASSET_MANAGER.getAsset('./vortex.png');
+    this.radius = 40;
+    this.setCoords();
+    this.centerx = this.x + this.radius;
+    this.centery = this.y + this.radius;
+}
+Vortex.prototype = new Entity();
+Vortex.prototype.constructor = Vortex;
+
+Vortex.prototype.setCoords = function () {
+
+    this.x = this.radial_distance* Math.cos(this.angle);
+    this.y = 150;
+    this.centerx = this.x + this.radius;
+    this.centery = this.y + this.radius;
+}
+
+Vortex.prototype.update = function () {
+    this.setCoords();
+    this.radial_distance -= this.speed * this.game.clockTick;
+
+    distX = main_cat.centerx - this.centerx;
+    distY = main_cat.centery - this.centery;
+
+    dist = Math.sqrt((distX * distX) + (distY * distY));
+    sum = this.radius + main_cat.radius;
+
+    if (dist <= sum) {
+    	//Here is where vortex collision will happen
+    	
+        console.log("Collided with vortex!!!");
+        document.getElementById('gameWorld').style.display = 'none';
+		document.getElementById('miniGame').focus();
+        
+    }
+    Entity.prototype.update.call(this);
+}
+
+Vortex.prototype.draw = function (ctx) {
+    this.drawSpriteCentered(ctx);
+
+    Entity.prototype.draw.call(this, ctx);
+}
+
+
+
 
 function Food(game, radial_distance, angle) {
     Entity.call(this, game);
@@ -341,6 +406,14 @@ function Food(game, radial_distance, angle) {
     this.speed = 100;
     this.sprite = ASSET_MANAGER.getAsset('./cake.gif');
     this.radius = 25;
+	var rand = Math.floor((Math.random() * 3));
+	if (rand === 0) {
+		this.y = 375;
+	} else if ( rand === 1) {
+		this.y = 250;
+	} else {
+		this.y = 125;
+	}
     this.setCoords();
     this.centerx = this.x + this.radius;
     this.centery = this.y + this.radius;
@@ -350,7 +423,6 @@ Food.prototype.constructor = Food;
 
 Food.prototype.setCoords = function () {
     this.x = this.radial_distance * Math.cos(this.angle);
-    this.y = 375;
     this.centerx = this.x + this.radius;
     this.centery = this.y + this.radius;
 }
@@ -365,11 +437,20 @@ Food.prototype.update = function () {
     dist = Math.sqrt((distX * distX) + (distY * distY));
     sum = this.radius + main_cat.radius;
 
-    console.log("Sum: " + sum);
-    console.log("Distance: " + sum);
+    /*console.log("Sum: " + sum);
+    console.log("Distance: " + sum);*/
 
     if (dist <= sum) {
-        console.log("Collision - FOOD");
+        if (main_cat.scale <= 1.5) {
+            main_cat.scale += 0.01;
+			if (food_scale > .50) {
+				food_scale -= 0.005;
+			}
+        }
+        main_cat.score += 100;
+		if (main_cat.score % 200 === 0 && garbage > 1) {
+			garbage--;
+		}
         this.removeFromWorld = true;
     }
 
@@ -381,6 +462,7 @@ Food.prototype.update = function () {
     Entity.prototype.update.call(this);
 }
 
+
 /*Food.prototype.hitPlanet = function () {
     var distance_squared = ((this.x * this.x) + (this.y * this.y));
     var radii_squared = (this.radius + Earth.RADIUS) * (this.radius + Earth.RADIUS);
@@ -388,7 +470,9 @@ Food.prototype.update = function () {
 }*/
 
 Food.prototype.draw = function (ctx) {
-    this.drawSpriteCentered(ctx);
+    var x = this.x - this.sprite.width/2;
+    var y = this.y - this.sprite.height/2;
+    ctx.drawImage(this.sprite, x, y, 100 * food_scale, 100 * food_scale);
 
     Entity.prototype.draw.call(this, ctx);
 }
@@ -397,9 +481,17 @@ function Garbage(game, radial_distance, angle) {
     Entity.call(this, game);
     this.radial_distance = radial_distance;
     this.angle = 0;
-    this.speed = 200;
+    this.speed = garbage_speed;
     this.sprite = ASSET_MANAGER.getAsset('./skull.png');
     this.radius = 100 / 2;
+	var rand = Math.floor((Math.random() * 3));
+	if (rand === 0) {
+		this.y = 375;
+	} else if ( rand === 1) {
+		this.y = 250;
+	} else {
+		this.y = 125;
+	}
     this.setCoords();
     this.centerx = this.x + this.radius;
     this.centery = this.y + this.radius;
@@ -409,7 +501,6 @@ Garbage.prototype.constructor = Garbage;
 
 Garbage.prototype.setCoords = function () {
     this.x = this.radial_distance;
-    this.y = 370;
     this.centerx = this.x + this.radius;
     this.centery = this.y + this.radius;
 }
@@ -424,15 +515,13 @@ Garbage.prototype.update = function () {
     dist = Math.sqrt((distX * distX) + (distY * distY));
     sum = this.radius + main_cat.radius;
 
-    console.log("Sum: " + sum);
-    console.log("Distance: " + sum);
 
     if (dist <= sum) {
-        console.log("Collision - FOOD");
         this.removeFromWorld = true;
         main_cat.lives--;
         if (main_cat.lives === 0) {
             alert("You Died!!!!!");
+			document.getElementById('gameWorld').style.display = 'none';
         }
     }
     Entity.prototype.update.call(this);
@@ -445,7 +534,9 @@ Food.prototype.hitCat = function () {
 }
 
 Garbage.prototype.draw = function (ctx) {
-    this.drawSpriteCentered(ctx);
+    var x = this.x - this.sprite.width/2;
+    var y = this.y - this.sprite.height/2;
+    ctx.drawImage(this.sprite, x, y, 100 * food_scale, 100 * food_scale);
 
     Entity.prototype.draw.call(this, ctx);
 }
@@ -463,15 +554,20 @@ CatEngine.prototype.start = function () {
 }
 
 CatEngine.prototype.update = function () {
-    if (this.lastFoodAddedAt == null || (this.timer.gameTime - this.lastFoodAddedAt) > 3) {
+    if (this.lastFoodAddedAt == null || (this.timer.gameTime - this.lastFoodAddedAt) > 1) {
         this.addEntity(new Food(this, this.ctx.canvas.width, Math.random() * Math.PI * 180));
         this.lastFoodAddedAt = this.timer.gameTime;
     }
 
-    if (this.lastGarbageAddedAt == null || (this.timer.gameTime - this.lastGarbageAddedAt) > 3) {
+    if (this.lastGarbageAddedAt == null || (this.timer.gameTime - this.lastGarbageAddedAt) > garbage) {
         this.addEntity(new Garbage(this, this.ctx.canvas.width, Math.random() * Math.PI * 180));
         this.lastGarbageAddedAt = this.timer.gameTime;
     }
+    /**if(this.lastVortexAddedAt == null && (this.timer.gameTime - this.lastVortexAddedAt) > Math.random() * 200 + 10){
+    	this.addEntity(new Vortex(this, this.ctx.canvas.width, Math.random() * Math.PI * 180));
+    	this.lastVortexAddedAt = this.timer.gameTime;
+    }**/
+  
 
     GameEngine.prototype.update.call(this);
 }
@@ -485,7 +581,9 @@ var ASSET_MANAGER = new AssetManager();
 
 ASSET_MANAGER.downloadAll(function () {
     var canvas = document.getElementById('gameWorld');
+    var game_canvas = document.getElementById('miniGame');
     var ctx = canvas.getContext('2d');
+    var game_context = game_canvas.getContext('2d');
     var game = new CatEngine();
 
     ASSET_MANAGER.queueDownload('./pusheen1.png');
@@ -493,6 +591,7 @@ ASSET_MANAGER.downloadAll(function () {
     ASSET_MANAGER.queueDownload('./skull.png');
     ASSET_MANAGER.queueDownload('./bg.png');
     ASSET_MANAGER.queueDownload('./rolling.png');
+    ASSET_MANAGER.queueDownload('./vortex.png');
     
     ASSET_MANAGER.downloadAll(function () {
         //main_cat = new Cat(this, 250, 360, './pusheen1.png');
