@@ -1,14 +1,30 @@
 var garbage = 6;
 var garbage_speed = 200;
 var food_scale = 1;
+var isActive = true;
 
-window.requestAnimFrame = (function(){
-    return  window.requestAnimationFrame   ||
+var rotationPuzzleActive = false;
+var pipePuzzleActive = false;
+var mazePuzzleActive = false;
+var cardPuzzleActive = false;
+
+var timerID = 0;
+var startTime;
+var timeLeft = 0;
+
+var pipetimerID = 0;
+var pipestartTime;
+var pipetimeLeft = 0;
+var rand = 0;
+var vortexCollision = false;
+
+window.requestAnimFrame = (function () {
+    return window.requestAnimationFrame ||
 			window.webkitRequestAnimationFrame ||
-			window.mozRequestAnimationFrame    ||
-			window.oRequestAnimationFrame      ||
-			window.msRequestAnimationFrame     ||
-			function(/* function */ callback, /* DOMElement */ element){
+			window.mozRequestAnimationFrame ||
+			window.oRequestAnimationFrame ||
+			window.msRequestAnimationFrame ||
+			function (/* function */ callback, /* DOMElement */ element) {
 			    window.setTimeout(callback, 1000 / 60);
 			};
 })();
@@ -50,11 +66,11 @@ AssetManager.prototype.getAsset = function (path) {
     return this.cache[path];
 }
 
-function Animation(spriteSheet, frameWidth, frameDuration, loop) {
+function Animation(spriteSheet, frameWidth, frameHeight, frameDuration, loop) {
     this.spriteSheet = ASSET_MANAGER.getAsset(spriteSheet);
     this.frameWidth = frameWidth;
     this.frameDuration = frameDuration;
-    this.frameHeight = this.spriteSheet.height;
+    this.frameHeight = frameHeight;
     this.totalTime = (this.spriteSheet.width / this.frameWidth) * this.frameDuration;
     this.elapsedTime = 0;
     this.loop = loop;
@@ -102,7 +118,11 @@ Timer.prototype.tick = function () {
 
     var gameDelta = Math.min(wallDelta, this.maxStep);
     this.gameTime += gameDelta;
-    return gameDelta;
+    if (isActive) {
+        return gameDelta;
+    } else {
+        return 0;
+    }
 }
 
 function GameEngine() {
@@ -121,6 +141,9 @@ GameEngine.prototype.init = function (ctx) {
     this.surfaceWidth = this.ctx.canvas.width;
     this.surfaceHeight = this.ctx.canvas.height;
     this.startInput();
+    song = document.getElementById("mainMusic");
+    song.volume = 0.4;
+    song.play();
 }
 
 GameEngine.prototype.start = function () {
@@ -199,6 +222,10 @@ GameEngine.prototype.loop = function () {
     this.draw();
     this.click = null;
     this.wheel = null;
+
+    if (song.ended) {
+        song.play();
+    }
 }
 
 function Entity(game, x, y) {
@@ -212,19 +239,19 @@ Entity.prototype.update = function () {
 }
 
 Entity.prototype.draw = function (ctx) {
-    if (this.game.showOutlines && this.radius) { 
+    if (this.game.showOutlines && this.radius) {
         ctx.beginPath();
         ctx.strokeStyle = "green";
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
         ctx.stroke();
         ctx.closePath();
-    } 
+    }
 }
 
-Entity.prototype.drawSpriteCentered = function(ctx) {
+Entity.prototype.drawSpriteCentered = function (ctx) {
     if (this.sprite && this.x && this.y) {
-        var x = this.x - this.sprite.width/2;
-        var y = this.y - this.sprite.height/2;
+        var x = this.x - this.sprite.width / 2;
+        var y = this.y - this.sprite.height / 2;
         ctx.drawImage(this.sprite, x, y);
     }
 }
@@ -249,7 +276,15 @@ Entity.prototype.rotateAndCache = function (image, angle) {
 function GameBoard(game) {
     Entity.call(this, game);
     this.x = 0;
-    this.y = 400;
+    this.y = 450;
+    this.vx = 0;
+    this.vy = 0;
+    this.vz = 0;
+    this.img0 = new Animation('./rain.png', 400, 250, 0.2, true);
+    this.img1 = new Animation('./paris.png', 400, 250, 0.2, true);
+    this.img2 = new Animation('./fireworks.png', 400, 250, 0.2, true);
+    this.img3 = new Animation('./snow.png', 400, 250, 0.2, true);
+    this.img4 = new Animation('./christmas.png', 400, 250, 0.2, true);
 }
 
 GameBoard.prototype = new Entity();
@@ -258,29 +293,45 @@ GameBoard.prototype.constructor = GameBoard;
 GameBoard.prototype.update = function () {
     Entity.prototype.update.call(this);
 }
-vx = 0;
 
 GameBoard.prototype.draw = function (ctx) {
     var canvas = document.getElementById('gameWorld');
     rect = canvas.getContext("2d");
-    this.ctx = ctx;
-    var img = ASSET_MANAGER.getAsset('./bg.png');
+    this.img0.drawFrame(this.game.clockTick, ctx, 400 + this.vx, 250, 2);
+    this.img1.drawFrame(this.game.clockTick, ctx, 1200 +(this.vx), 250, 2);
+    this.img2.drawFrame(this.game.clockTick, ctx, 2000 +(this.vx), 250, 2);
+    this.img3.drawFrame(this.game.clockTick, ctx, 2800 +(this.vz), 250, 2);
+    this.img4.drawFrame(this.game.clockTick, ctx, 3600 +(this.vy), 250, 2);
 
-    ctx.drawImage(img, vx, 0);
-    ctx.drawImage(img, img.width - Math.abs(vx), 0);
+    //ctx.drawImage(this.bg, this.vx, 0);
+    //ctx.drawImage(this.bg, this.bg.width - Math.abs(this.vx), 0);
 
-    ctx.fillStyle = "#000";
-    ctx.font = "bold 24px Arial";
-    ctx.fillText("Lives: " + main_cat.lives, 10, 25);
-    ctx.fillText("Score: " + main_cat.score, 10, 45);
-
-    if (Math.abs(vx) > img.width) {
-        vx = 0;
+    if (Math.abs(this.vx) > 3000) {
+        this.vx = 990;
     }
 
-    vx -= 1;
-    rect.fillStyle = "#947E6B";
-    rect.fillRect(this.x, this.y, 1000, 100);
+    if (Math.abs(this.vy) > 4000) {
+        this.vy = -10;
+    }
+
+    if (Math.abs(this.vz) > 3600) {
+        this.vz = 390;
+    }
+        this.vy -= 1;
+        this.vx -= 1;
+        this.vz -= 1;
+    
+
+
+    /*rect.fillStyle = "#947E6B";
+    rect.fillRect(this.x, this.y, 1000, 100);*/
+
+    ctx.fillStyle = "#000";
+    ctx.font = "bold 20px Arial";
+    ctx.drawImage(ASSET_MANAGER.getAsset('./lives.png'), 10, 10);
+    ctx.drawImage(ASSET_MANAGER.getAsset('./score.png'), 10, 28);
+    ctx.fillText(main_cat.lives, 80, 24);
+    ctx.fillText(main_cat.score, 85, 42);
 }
 
 function Cat(game, x, y, sprite) {
@@ -299,16 +350,16 @@ Cat.prototype.update = function () {
     Entity.prototype.update.call(this);
 }
 
-Cat.prototype.draw = function(ctx) {
+Cat.prototype.draw = function (ctx) {
     this.drawSpriteCentered(ctx);
-    
+
     Entity.prototype.draw.call(this, ctx);
 }
 
-function RollingCat(game, x, y) {
-    this.t = new Timer();
+function RollingCat(game, x, y, spriteSheet) {
     Entity.call(this, game, x, y);
-    this.animation = new Animation('./rolling.png', 300, 0.09, true);
+    this.spriteSheet = spriteSheet;
+    this.animation = new Animation(spriteSheet, 205, 108, 0.2, true);
     this.radius = 50;
     this.jump = false;
     this.centerx = this.x + this.radius;
@@ -316,11 +367,20 @@ function RollingCat(game, x, y) {
     this.lives = 9;
     this.score = 0;
     this.scale = 0.7;
+    this.angle = 0;
+    this.count = 0;
 }
 RollingCat.prototype = new Entity();
 RollingCat.prototype.constructor = RollingCat;
 
 RollingCat.prototype.update = function () {
+    if (this.count % 10 === 0 && this.count / 10 <= 5) {
+        var index = this.count / 10;
+        this.animation.spriteSheet = ASSET_MANAGER.getAsset(cats[index]);
+        this.animation.frameWidth = this.animation.spriteSheet.width / 2;
+        this.animation.frameHeight = this.animation.spriteSheet.height;
+    }
+
     this.centerx = this.x + this.radius;
     this.centery = this.y + this.radius;
     Entity.prototype.update.call(this);
@@ -329,26 +389,41 @@ RollingCat.prototype.update = function () {
     }
 
     if (this.jump) {
-        if (this.y > 100) {
+        if (this.y > 125) {
             this.y -= 5;
         } else {
             this.jump = false;
         }
     } else {
-        if (this.y < 360) {
+        if (this.y < 430) {
             this.y += 5;
         }
     }
 }
 
 RollingCat.prototype.draw = function (ctx) {
-    this.animation.drawFrame(this.t.tick(), ctx, this.x, this.y, this.scale);
+    if (this.jump || this.y < 430) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(degreeToRadian(this.angle));
+        ctx.translate(-this.animation.frameWidth / 16, -this.animation.frameHeight / 16);
+        this.animation.drawFrame(this.game.clockTick, ctx, 0, 0, this.scale);
+        ctx.restore();
+        this.angle += 8;
+    } else if (this.y >= 430) {
+        this.animation.drawFrame(this.game.clockTick, ctx, this.x, this.y, this.scale);
+    }
+
     Entity.prototype.draw.call(this, ctx);
 }
 
+function degreeToRadian(d) {
+    // Converts degrees to radians
+    return d * 0.0174532925199432957;
+}
 
-function Vortex(game, radial_distance, angle){
-	Entity.call(this, game);
+function Vortex(game, radial_distance, angle) {
+    Entity.call(this, game);
     this.radial_distance = radial_distance;
     this.angle = 0;
     this.speed = 100;
@@ -363,7 +438,7 @@ Vortex.prototype.constructor = Vortex;
 
 Vortex.prototype.setCoords = function () {
 
-    this.x = this.radial_distance* Math.cos(this.angle);
+    this.x = this.radial_distance;
     this.y = 150;
     this.centerx = this.x + this.radius;
     this.centery = this.y + this.radius;
@@ -379,41 +454,95 @@ Vortex.prototype.update = function () {
     dist = Math.sqrt((distX * distX) + (distY * distY));
     sum = this.radius + main_cat.radius;
 
-    if (dist <= sum) {
-    	//Here is where vortex collision will happen
-    	
-        console.log("Collided with vortex!!!");
-        document.getElementById('gameWorld').style.display = 'none';
-		document.getElementById('miniGame').focus();
-        
+    if (dist <= sum && vortexCollision === false) {
+        //Here is where vortex collision will happen
+        vortexCollision = true;
+        this.removeFromWorld = true;
+        isActive = false;
+        rand = Math.floor(Math.random() * 3);
+
+        if (played) {
+            rand = Math.floor(Math.random() * 2);
+        }
+
+        if (rand === 2) {
+            played = true;
+        }
+
+        console.log(rand);
+        switch (rand) {
+            case 0: //rotation puzzle
+                rotationPuzzleActive = true;
+                startTime = Date.now();
+
+                timerID = setInterval("updateTimer()", 1000);
+                timeLeft = 30000;
+                updateTimer();
+
+                document.getElementById('miniGame').style.display = 'inline';
+                document.getElementById('miniGame').focus();
+                document.getElementById('miniGameTimer').style.display = 'inline';
+                document.getElementById('gameWorld').style.display = 'none';
+
+                break;
+            case 1: //pipe puzzle
+                pipePuzzleActive = true;
+                pipestartTime = Date.now();
+
+                pipetimerID = setInterval("pipeupdateTimer()", 1000);
+                pipetimeLeft = 30000;
+                pipeupdateTimer();
+
+                document.getElementById('pipeminiGame').style.display = 'inline';
+                document.getElementById('pipeminiGameTimer').style.display = 'inline';
+                document.getElementById('pipedivider').style.display = 'inline';
+                document.getElementById('pipeminiGame').focus();
+                document.getElementById('gameWorld').style.display = 'none';
+
+                break;
+            case 2:
+                cardPuzzleActive = true;
+                //cardInit();
+                document.getElementById('cardCanvas').style.display = 'inline';
+                document.getElementById('cardCanvas').focus();
+                document.getElementById('carddivider').style.display = 'inline';
+                document.body.style.background = "url('./cardbg.png')";
+                document.getElementById('gameWorld').style.display = 'none';
+                this.game.ctx.clearRect(0, 0, 1000, 1000);
+                break;
+        }
+        vortexCollision = false;
     }
     Entity.prototype.update.call(this);
 }
 
 Vortex.prototype.draw = function (ctx) {
-    this.drawSpriteCentered(ctx);
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(degreeToRadian(this.angle));
+    ctx.translate(-this.sprite.width * 0.5, -this.sprite.height * 0.5);
+    ctx.drawImage(this.sprite, 0, 0);
+    ctx.restore();
+    this.angle += 2;
 
     Entity.prototype.draw.call(this, ctx);
 }
 
-
-
-
-function Food(game, radial_distance, angle) {
+function Food(game, sprite, radial_distance, angle) {
     Entity.call(this, game);
     this.radial_distance = radial_distance;
     this.angle = 0;
     this.speed = 100;
-    this.sprite = ASSET_MANAGER.getAsset('./cake.gif');
+    this.sprite = ASSET_MANAGER.getAsset(sprite);
     this.radius = 25;
-	var rand = Math.floor((Math.random() * 3));
-	if (rand === 0) {
-		this.y = 375;
-	} else if ( rand === 1) {
-		this.y = 250;
-	} else {
-		this.y = 125;
-	}
+    var rand = Math.floor((Math.random() * 3));
+    if (rand === 0) {
+        this.y = 425;
+    } else if (rand === 1) {
+        this.y = 275;
+    } else {
+        this.y = 125;
+    }
     this.setCoords();
     this.centerx = this.x + this.radius;
     this.centery = this.y + this.radius;
@@ -437,61 +566,47 @@ Food.prototype.update = function () {
     dist = Math.sqrt((distX * distX) + (distY * distY));
     sum = this.radius + main_cat.radius;
 
-    /*console.log("Sum: " + sum);
-    console.log("Distance: " + sum);*/
-
     if (dist <= sum) {
-        if (main_cat.scale <= 1.5) {
-            main_cat.scale += 0.01;
-			if (food_scale > .50) {
-				food_scale -= 0.005;
-			}
+
+        if (food_scale > 0.5) {
+            main_cat.scale -= 0.001;
+            food_scale -= 0.005;
         }
+
+        main_cat.count++;
         main_cat.score += 100;
-		if (main_cat.score % 200 === 0 && garbage > 1) {
-			garbage--;
-		}
+        if (main_cat.score % 200 === 0 && garbage > 1) {
+            garbage--;
+        }
         this.removeFromWorld = true;
     }
 
-    /*if (this.x < 360 && !main_cat.jump) {
-        console.log("Collision - FOOD");
-        this.removeFromWorld = true;
-    }*/
-                    
     Entity.prototype.update.call(this);
 }
 
-
-/*Food.prototype.hitPlanet = function () {
-    var distance_squared = ((this.x * this.x) + (this.y * this.y));
-    var radii_squared = (this.radius + Earth.RADIUS) * (this.radius + Earth.RADIUS);
-    return distance_squared < radii_squared;
-}*/
-
 Food.prototype.draw = function (ctx) {
-    var x = this.x - this.sprite.width/2;
-    var y = this.y - this.sprite.height/2;
-    ctx.drawImage(this.sprite, x, y, 100 * food_scale, 100 * food_scale);
+    var x = this.x - this.sprite.width / 2;
+    var y = this.y - this.sprite.height / 2;
+    ctx.drawImage(this.sprite, x, y, this.sprite.width * food_scale, this.sprite.height * food_scale);
 
     Entity.prototype.draw.call(this, ctx);
 }
 
-function Garbage(game, radial_distance, angle) {
+function Garbage(game, sprite, radial_distance, angle) {
     Entity.call(this, game);
     this.radial_distance = radial_distance;
     this.angle = 0;
     this.speed = garbage_speed;
-    this.sprite = ASSET_MANAGER.getAsset('./skull.png');
+    this.sprite = ASSET_MANAGER.getAsset(sprite);
     this.radius = 100 / 2;
-	var rand = Math.floor((Math.random() * 3));
-	if (rand === 0) {
-		this.y = 375;
-	} else if ( rand === 1) {
-		this.y = 250;
-	} else {
-		this.y = 125;
-	}
+    var rand = Math.floor((Math.random() * 3));
+    if (rand === 0) {
+        this.y = 425;
+    } else if (rand === 1) {
+        this.y = 275;
+    } else {
+        this.y = 125;
+    }
     this.setCoords();
     this.centerx = this.x + this.radius;
     this.centery = this.y + this.radius;
@@ -518,25 +633,26 @@ Garbage.prototype.update = function () {
 
     if (dist <= sum) {
         this.removeFromWorld = true;
-        main_cat.lives--;
-        if (main_cat.lives === 0) {
-            alert("You Died!!!!!");
-			document.getElementById('gameWorld').style.display = 'none';
+       main_cat.lives--;
+       if (main_cat.lives === 0) {
+           song = document.getElementById("mainMusic");
+           song.volume = 0;
+           alert("GAME OVER");
+            document.getElementById('gameWorld').style.display = 'none';
+            isActive = false;
         }
     }
     Entity.prototype.update.call(this);
 }
 
 Food.prototype.hitCat = function () {
-    //var distance_squared = ((this.x * this.x) + (this.y * this.y));
-    //var radii_squared = this.radius * this.radius;
     return this.x < 525;
 }
 
 Garbage.prototype.draw = function (ctx) {
-    var x = this.x - this.sprite.width/2;
-    var y = this.y - this.sprite.height/2;
-    ctx.drawImage(this.sprite, x, y, 100 * food_scale, 100 * food_scale);
+    var x = this.x - this.sprite.width / 2;
+    var y = this.y - this.sprite.height / 2;
+    ctx.drawImage(this.sprite, x, y, this.sprite.width * food_scale, this.sprite.height * food_scale);
 
     Entity.prototype.draw.call(this, ctx);
 }
@@ -553,21 +669,41 @@ CatEngine.prototype.start = function () {
     this.addEntity(main_cat);
 }
 
+var food1 = 0;
+var garbage1 = 0;
+var vortex1 = 0;
+var played = false;
+
 CatEngine.prototype.update = function () {
-    if (this.lastFoodAddedAt == null || (this.timer.gameTime - this.lastFoodAddedAt) > 1) {
-        this.addEntity(new Food(this, this.ctx.canvas.width, Math.random() * Math.PI * 180));
-        this.lastFoodAddedAt = this.timer.gameTime;
+    if (isActive && (this.lastFoodAddedAt == null || (this.timer.gameTime - this.lastFoodAddedAt) > 1)) {
+        if (food1 !== 0) {
+            var rand = Math.floor(Math.random() * food.length);
+            this.addEntity(new Food(this, food[rand], this.ctx.canvas.width, Math.random() * Math.PI * 180));
+            this.lastFoodAddedAt = this.timer.gameTime;
+        } else {
+            food1++;
+        }
     }
 
-    if (this.lastGarbageAddedAt == null || (this.timer.gameTime - this.lastGarbageAddedAt) > garbage) {
-        this.addEntity(new Garbage(this, this.ctx.canvas.width, Math.random() * Math.PI * 180));
-        this.lastGarbageAddedAt = this.timer.gameTime;
+    if (isActive && (this.lastGarbageAddedAt == null || (this.timer.gameTime - this.lastGarbageAddedAt) > garbage)) {
+        if (garbage1 !== 0) {
+            var rand = Math.floor(Math.random() * basura.length);
+            this.addEntity(new Garbage(this, basura[rand], this.ctx.canvas.width, Math.random() * Math.PI * 180));
+            this.lastGarbageAddedAt = this.timer.gameTime;
+        } else {
+            garbage1++;
+        }
     }
-    /**if(this.lastVortexAddedAt == null && (this.timer.gameTime - this.lastVortexAddedAt) > Math.random() * 200 + 10){
-    	this.addEntity(new Vortex(this, this.ctx.canvas.width, Math.random() * Math.PI * 180));
-    	this.lastVortexAddedAt = this.timer.gameTime;
-    }**/
-  
+
+    if (isActive && (this.lastVortexAddedAt == null || (this.timer.gameTime - this.lastVortexAddedAt) > Math.random() + 20)) {
+        if (vortex1 > 0) {
+            this.addEntity(new Vortex(this, this.ctx.canvas.width, Math.random() * Math.PI * 180));
+            this.lastVortexAddedAt = this.timer.gameTime;
+        } else {
+            vortex1++;
+        }
+    }
+
 
     GameEngine.prototype.update.call(this);
 }
@@ -586,40 +722,44 @@ ASSET_MANAGER.downloadAll(function () {
     var game_context = game_canvas.getContext('2d');
     var game = new CatEngine();
 
-    ASSET_MANAGER.queueDownload('./pusheen1.png');
-    ASSET_MANAGER.queueDownload('./cake.gif');
-    ASSET_MANAGER.queueDownload('./skull.png');
-    ASSET_MANAGER.queueDownload('./bg.png');
-    ASSET_MANAGER.queueDownload('./rolling.png');
+    food = ['./cake.png', './donut.png', './noodles.png', './pancakes.png', './popsicle.png', './riceball.png', './sushi.png'];
+    for (var i = 0; i < food.length; i++) {
+        ASSET_MANAGER.queueDownload(food[i]);
+    }
+    basura = ['./poison.gif', './poop.png', './skull.png'];
+    for (var i = 0; i < basura.length; i++) {
+        ASSET_MANAGER.queueDownload(basura[i]);
+    }
+
+    cats = ['./pusheen1.png', './pusheen2.png', './pusheen3.png', './pusheen4.png', './pusheen5.png', './pusheen6.png'];
+    for (var i = 0; i < cats.length; i++) {
+        ASSET_MANAGER.queueDownload(cats[i]);
+    }
+
+    ASSET_MANAGER.queueDownload('./lives.png');
+    ASSET_MANAGER.queueDownload('./score.png');
+    ASSET_MANAGER.queueDownload('./rain.png');
+    ASSET_MANAGER.queueDownload('./rainbow.png');
     ASSET_MANAGER.queueDownload('./vortex.png');
-    
+    ASSET_MANAGER.queueDownload('./paris.png');
+    ASSET_MANAGER.queueDownload('./snow.png');
+    ASSET_MANAGER.queueDownload('./fireworks.png');
+    ASSET_MANAGER.queueDownload('./christmas.png');
+    ASSET_MANAGER.queueDownload('./vortex.png');
+    ASSET_MANAGER.queueDownload('./catwalk_forward.png');
+
     ASSET_MANAGER.downloadAll(function () {
         //main_cat = new Cat(this, 250, 360, './pusheen1.png');
-        main_cat = new RollingCat(this, 250, 360);
-        gb = new GameBoard(this);
+        main_cat = new RollingCat(game, 250, 430, './pusheen1.png');
+
+        gb = new GameBoard(game);
         canvas.setAttribute('tabindex', '0');
         canvas.focus();
-        canvas.onkeypress = function (e) {
-            if (e.keyCode === 119) {
-                main_cat.y-=3;
-            }
-
-            if (e.keyCode === 115) {
-                main_cat.y+=3;
-            }
-
-            if (e.keyCode === 100) {
-                main_cat.x+=3;
-            }
-
-            if (e.keyCode === 97) {
-                main_cat.x-=3;
-            }
-
+        window.addEventListener("keydown", function (e) {
             if (e.keyCode === 32) {
                 main_cat.jump = true;
             }
-        };
+        }, true);
         game.init(ctx);
         game.start();
     });

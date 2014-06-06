@@ -1,13 +1,112 @@
 <!DOCTYPE html>
 <html>
 <head>
+	<style type="text/css">
+	body {
+		background:url('./wallpaper.png');
+		cursor:url('./images/cursor1.png'), auto;
+	}
+
+	#area {
+		margin-top:500px;
+		margin-left:500px;
+		margin-right:500px;
+		margin-bottom:500px;
+	}
+
+	#container {
+		position: absolute;
+		z-index: 1;
+		}
+
+	#time {
+		position: absolute;
+		z-index: 2;
+	}
+
+	canvas {
+		border:0px;
+		outline: none;
+	    -webkit-tap-highlight-color: rgba(255, 255, 255, 0);
+	}
+
+	#gameWorld {
+		background:#FFFFFF;
+		position:absolute;
+		display:inline;
+		margin-top:40px;
+		margin-left:170px;
+		top:0;
+		left:0;
+	    z-index:3;
+	}
+
+	#pipeminiGame {
+		position:absolute;
+		top:0;
+		left:0;
+		z-index:1;
+		display:none;
+		}
+
+		#cardCanvas {
+		margin-top:45px;
+		margin-left: 200px;
+		margin-right:250px;
+		background:transparent;
+		}
+
+		#miniGame {
+			position:absolute;
+			top:0;
+			left:0;
+			border: 0px;
+			z-index:2;
+			display:none;
+		}
+	</style>
+
     <meta charset="utf-8">
     <title>Game Project Shell</title>
-    <script type="text/javascript" src="./shell.js"></script>
-</head>
-<body>
-    <canvas id="miniGame" width="924" height="500" style="position:absolute;top:0;left:0;border: 0px;z-index:0;display:none"></canvas>
-    <canvas id="gameWorld" width="924" height="500" style="position:absolute;top:0;left:0;border: 0px;z-index:1;"></canvas>
+		<script type="text/javascript" src="./shell.js"></script>
+		<script type="text/javascript" src="./rotation.js"></script>
+		<script type="text/javascript" src="./pipe.js"></script>
+		<script type="text/javascript" src="./kittyMaze.js"></script>
+		<script type="text/javascript" src="./cards.js"></script>
+		<script type="text/javascript">
+			function change() {
+				sound = document.getElementById("clickSound");
+				sound.volume = 0.5;
+				sound.play();
 
+				document.body.style.cursor="url('./images/cursor2.png'), help";
+				setTimeout(function() { document.body.style.cursor="url('./images/cursor1.png'), auto";
+				}, 200);
+			}
+	</script>
+</head>
+<body onload="load();">
+	<div id="area" align="center" onmousedown="change()">
+	    <audio id="clickSound" src="./sounds/poke.mp3" style="display: none;"></audio>
+	    <audio id="mainMusic" src="./sounds/piano.mp3" style="display: none;"></audio>
+	    <audio id="matchSound" src="./sounds/twinkle.mp3" style="display: none;"></audio>
+	    <audio id="losingSound" src="./sounds/lost.mp3" style="display:none;"></audio>
+	    <audio id="winningSound" src="./sounds/won.mp3" style="display: none;"></audio>
+
+    	<canvas id="gameWorld" width="1000" height="500"></canvas>
+		<canvas id="miniGame" width="400px" height="400px"></canvas>
+    	<canvas id="miniGameTimer" width="1000px" height="100px" style="position:absolute;top:0;left:524px;border: 0px;z-index:2;display:none;"></canvas>
+
+		<canvas id="pipeminiGame" width="1000px" height="600px"></canvas>
+		<canvas id="pipeminiGameTimer" width="1000px" height="100px" style="position:absolute;top:0;left:0;border:0px;z-index:1;display:none;"></canvas>
+		<img id="pipedivider" src="http://24.media.tumblr.com/72e50a25c2179a2796640f825710281e/tumblr_mm4r98r2YJ1rfjowdo1_500.gif" align="center" style="position:absolute;margin-top:-450px;margin-left:-250px;display:none;        -moz-user-select: none;
+        -khtml-user-select: none;
+        -webkit-user-select: none;
+        -o-user-select: none; ">
+
+		<canvas id="MazeCanvas" width="673px" height="673px" style="position:absolute;top:0;left:0px;border: 0px;z-index:-1;display:none;"></canvas>
+		<canvas id="cardCanvas"  width="924" height="510" style="position:absolute;top:0;left:0px;border: 0px;z-index:0;display:none;"></canvas>
+			<img id="carddivider" src="./divider.png" align="center" style="margin-top:-950px;display:none;">
+</div>
 </html>
 </body>
